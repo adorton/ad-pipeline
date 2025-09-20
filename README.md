@@ -62,7 +62,7 @@ Notes:
 
 * **Campaign Brief** - A YAML file that contains the following details. It
   should be placed in the input directory alongside template and product photo
-  files. See [example-inputs/example-brief.yml](the example brief).
+  files. See [the example brief](example-inputs/example-brief.yml).
   * `campaign_name` - Friendly name for campaign used in logging and email
     alerts.
   * `templates` - List of the filenames of the PSD templates to use. These
@@ -87,3 +87,11 @@ Notes:
   campaign verbiage and another text layer for call to action (e.g. "Buy Now").
 * **Product Images** - One or more image files (jpg or png) of the products in
   the campaign. These will be inserted into the PSD templates.
+
+## Running the Pipeline
+
+The command to run the pipeline is:
+
+``` sh
+$ uv run pipeline.py process
+```
