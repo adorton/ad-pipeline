@@ -47,16 +47,34 @@ Exmaple:
 FFS_CLIENT_ID=8ef6...1596
 FFS_SECRET=p8e-...Qzxy
 
+# LLM Credentials and Config
+LLM_PROVIDER=openai
+LLM_API_KEY=sk-...mhQA
+LLM_MODEL=gpt-3.5-turbo
+LLM_BASE_URL=
+LLM_MAX_TOKENS=1000
+LLM_TEMPERATURE=0.7
+
 # Application Config
 INPUT_DIRECTORY=./input
 OUTPUT_DIRECTORY=./output
 FILE_ENCODING=utf-8
 ```
 
-Notes:
-
-* Firefly Services (FFS) credentials are used for all Firefly and Photoshop API
-  calls
+* `FFS_CLIENT_ID` - Client ID for Firefly and Photoshop APIs
+* `FFS_SECRET` - Client ID for Firefly and Photoshop APIs
+* `LLM_PROVIDER` - Should be `openai` since that is currently the only supported
+  LLM
+* `LLM_API_KEY` - API key for LLM
+* `LLM_MODEL` - The LLM model to use
+* `LLM_BASE_URL` - Base URL for LLM (optional)
+* `LLM_MAX_TOKENS` - Max tokens to use in LLM API calls
+* `LLM_TEMPERATURE` - LLM temperature
+* `INPUT_DIRECTORY` - Directory where the inputs (campaign files, templates,
+  product photos) can be found
+* `OUTPUT_DIRECTORY` - Directory where final campaign image renditions are
+  placed
+* `FILE_ENCODING` - File encoding of campaign YAML files
 
 ## Inputs
 
