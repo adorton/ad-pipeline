@@ -1,0 +1,20 @@
+campaign_name: Athletic Shoes
+templates:
+  athletic_shoes_1_1.psd
+  athletic_shoes_16_9.psd
+  athletic_shoes_9_16.psd
+products:
+  - name: Turbo Shoe 5000
+    image: turbo_5000.jpg
+    prompt:
+  - name: Normal Shoe
+    image:
+    prompt: |
+      A normal looking running shoe sitting on pavement. The shoe should be by
+      itself. It should not be worn by a person. Brand colors are orange and blue
+target_audience: |
+  18-35 middle income men
+target_market: |
+  metropolitan/urban areas in the united states
+campaign_message: |
+  Put some pep in your step
