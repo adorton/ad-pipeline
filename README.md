@@ -2,7 +2,15 @@
 
 ## Overview
 
-1. 
+* Read one or more campaign briefs in a structured format (YAML). These files
+  contain product images, messaging details, target audience/market, etc.
+* For each campaign brief, generate ad image renditions from a given set of
+  product images and Photoshop templates.
+* Input and output files are stored locally.
+* For Firefly Services (FFS) API calls, Azure blob storage will be used to store
+  transient asssets.
+* Use an LLM to tailor campaign messaging and call-to-action (OpenAI only for
+  now)
 
 ## Setup
 
