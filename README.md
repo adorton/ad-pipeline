@@ -116,47 +116,50 @@ $ uv run pipeline.py process
 
 When the pipeline runs, it follows this general workflow:
 
-1. Read the campaign brief file (e.g. `inputs/campaign.yml`)
-2. Ensure PSD templates all exist. If any PSD template files don't exist in the
+1. Get a list of `.yml` files from the input directory (e.g. `inputs/*.yml`)
+2. For each campaign file (e.g. `my-campaign-brief.yml`):
+   1. Load and validate campaign file
+   2. Ensure PSD templates all exist. If any PSD template files don't exist in the
    input directory, then log error and exit.
-3. Ensure all PSD template definitions have a `file_id` - this is used in the
+   3. Ensure all PSD template definitions have a `file_id` - this is used in the
    final rendition naming convention.
-4. Create directory in Azure blob storage repository. Directory will have the
+   4. Create directory in Azure blob storage repository. Directory will have the
    name of the campaign file (e.g. `campaign.yml`).
-5. Upload PSD templates to campaign directory in Azure storage.
-6. For each product definition:
-   1. If the `file_id` of the product is not specified, log error and continue
-      to next product.
-   2. If product image is specified and is found in input directory, then upload
-      to campaign folder in Azure storage.
-   3. If the product image is specified but not found, log error and continue to
-      next product.
-   4. If product image filename is not specified, then use `prompt` to generate
-      product image from Firefly API.
-   5. If prompt is also blank, then log error and continue to next product.
-   6. Send a prompt request to the ChatGPT API to get campaign verbiage for the
-      template.
-   7. Send a prompt request to the ChatGPT API to get call-to-action text.
-   8. For each PSD template:
-      1. Send Photoshop API request to replace text endpoint to replace the
-         campaign verbiage and call-to-action layers with text generated from
-         the LLM call.
-      2. Run product image through the product crop Photoshop API.
-      3. Run croppped product image through the "remove background" Photoshop API.
-      4. Send Photoshop API request to Replace Smart Object endpoint to insert
-         the product photo into the PSD template.
-      5. Run final PSD through the "create rendition" Photoshop API to create a
-         png.
-      6. Download the rendition from the Azure campaign directory and write the
-         file to the `{output}/{campaign}` directory where `{campaign}` has the
-         same name as the campaign brief file and `{output}` is the output
-         container directory. For example, is the brief file is
-         `summer-sale.yml` and all outputs go into the directory `output`, then
-         outputs will be placed in the directory `output/summer-sale.yml/`.
-      7. Rendition should have the naming convention
-         `{product_file_id}_{template_file_id}.png` where `product_file_id` is
-         the `file_id` of the product and `template_file_id` is the `file_id` of
-         the template.
-      8. Log message that rendition was created successfully.
-   9. When all renditions are created successfully, log a success message
-7. When process completes, log an overall success message.
+   5. Upload PSD templates to campaign directory in Azure storage.
+   6. For each product definition:
+      1. If the `file_id` of the product is not specified, log error and continue
+          to next product.
+      2. If product image is specified and is found in input directory, then upload
+          to campaign folder in Azure storage.
+      3. If the product image is specified but not found, log error and continue to
+          next product.
+      4. If product image filename is not specified, then use `prompt` to generate
+          product image from Firefly API.
+      5. If prompt is also blank, then log error and continue to next product.
+      6. Send a prompt request to the ChatGPT API to get campaign verbiage for the
+          template.
+      7. Send a prompt request to the ChatGPT API to get call-to-action text.
+      8. For each PSD template:
+          1. Send Photoshop API request to replace text endpoint to replace the
+              campaign verbiage and call-to-action layers with text generated from
+              the LLM call.
+          2. Run product image through the product crop Photoshop API.
+          3. Run croppped product image through the "remove background" Photoshop API.
+          4. Send Photoshop API request to Replace Smart Object endpoint to insert
+              the product photo into the PSD template.
+          5. Run final PSD through the "create rendition" Photoshop API to create a
+              png.
+          6. Download the rendition from the Azure campaign directory and write the
+              file to the `{output}/{campaign}` directory where `{campaign}` has the
+              same name as the campaign brief file and `{output}` is the output
+              container directory. For example, is the brief file is
+              `summer-sale.yml` and all outputs go into the directory `output`, then
+              outputs will be placed in the directory `output/summer-sale.yml/`.
+          7. Rendition should have the naming convention
+              `{product_file_id}_{template_file_id}.png` where `product_file_id` is
+              the `file_id` of the product and `template_file_id` is the `file_id` of
+              the template.
+          8. Log message that rendition was created successfully.
+      9. When all renditions are created successfully, log a success message.
+   7. When all renditions are finished for the campaign, log a success message.
+3. When process completes, log an overall success message.
