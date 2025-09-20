@@ -79,6 +79,9 @@ Notes:
     ethnicity and other demographic information).
   * `target_market` - Brief description of the geographic locale and/or target
     market (country, city, local language, etc).
+  * `campaign_message` - The campaign message that will be run through an LLM in
+    order to tailor it to the target audience and target market, translating to
+    the target language and locale if needed.
 * **PSD Template Files** - One or more PSD (Photoshop Document) files, each
   containing a placeholder smart object for the product photo, a text layer for
   campaign verbiage and another text layer for call to action (e.g. "Buy Now").
