@@ -122,6 +122,29 @@ The command to run the pipeline is:
 $ uv run pipeline.py process
 ```
 
+### Available Commands
+
+- `process` - Process all campaign briefs and generate ad renditions
+- `validate` - Validate campaign briefs and check for required files
+- `--help` - Show help information
+- `--verbose` / `-v` - Enable verbose logging
+
+### Examples
+
+``` sh
+# Process all campaigns
+$ uv run pipeline.py process
+
+# Process with verbose logging
+$ uv run pipeline.py --verbose process
+
+# Validate campaign briefs
+$ uv run pipeline.py validate
+
+# Validate with custom directories
+$ uv run pipeline.py validate --input-dir ./my-campaigns --output-dir ./my-output
+```
+
 When the pipeline runs, it follows this general workflow:
 
 1. Get a list of `.yml` files from the input directory (e.g. `inputs/*.yml`)
@@ -171,3 +194,75 @@ When the pipeline runs, it follows this general workflow:
       9. When all renditions are created successfully, log a success message.
    7. When all renditions are finished for the campaign, log a success message.
 3. When process completes, log an overall success message.
+
+## Troubleshooting
+
+### Common Issues
+
+1. **Missing API Keys**: Ensure all required API keys are set in your `.env` file
+2. **Missing Template Files**: Use the `validate` command to check for missing PSD templates
+3. **Azure Storage Issues**: Verify your Azure storage account credentials and container permissions
+4. **API Rate Limits**: The pipeline includes error handling for rate limits, but you may need to add delays for high-volume processing
+
+### Validation
+
+Before running the pipeline, use the validate command to check your setup:
+
+``` sh
+$ uv run pipeline.py validate
+```
+
+This will:
+- Check that all YAML files are valid
+- Verify that PSD templates exist
+- Check for missing product images
+- Display a summary of your campaigns
+
+### Logging
+
+Enable verbose logging to see detailed information about the processing:
+
+``` sh
+$ uv run pipeline.py --verbose process
+```
+
+### File Structure Requirements
+
+- Campaign briefs must be valid YAML files
+- PSD templates must exist in the input directory
+- Product images are optional if you provide prompts
+- All file paths are case-sensitive
+
+## Development
+
+### Testing
+
+Run the test script to verify your setup:
+
+``` sh
+$ python test_setup.py
+```
+
+### Project Structure
+
+```
+ad-pipeline/
+├── src/                    # Source code
+│   ├── __init__.py
+│   ├── cli.py             # CLI interface
+│   ├── config.py          # Configuration management
+│   ├── models.py          # Pydantic models
+│   ├── azure_client.py    # Azure Blob Storage client
+│   ├── llm_client.py      # OpenAI LLM client
+│   ├── firefly_client.py  # Adobe Firefly client
+│   ├── photoshop_client.py # Adobe Photoshop API client
+│   └── pipeline.py        # Main pipeline processor
+├── input/                 # Input files directory
+├── output/                # Output files directory
+├── example-inputs/        # Example campaign briefs
+├── pipeline.py           # Main entry point
+├── test_setup.py         # Setup verification script
+├── pyproject.toml        # Project configuration
+├── env.template          # Environment template
+└── README.md             # This file
+```

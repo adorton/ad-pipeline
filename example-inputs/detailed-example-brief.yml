@@ -1,0 +1,48 @@
+campaign_name: Summer Athletic Collection 2024
+templates:
+  - file_id: banner_16_9
+    filename: summer_athletic_banner_16_9.psd
+  - file_id: square_1_1
+    filename: summer_athletic_square_1_1.psd
+  - file_id: story_9_16
+    filename: summer_athletic_story_9_16.psd
+  - file_id: poster_3_4
+    filename: summer_athletic_poster_3_4.psd
+products:
+  - name: Ultra Light Running Shoes
+    file_id: ultra_light_runner
+    image: ultra_light_running_shoes.jpg
+    prompt:
+  - name: Trail Adventure Boots
+    file_id: trail_adventure
+    image: trail_adventure_boots.jpg
+    prompt:
+  - name: City Commuter Sneakers
+    file_id: city_commuter
+    image:
+    prompt: |
+      Modern urban sneakers in neutral colors, perfect for city commuting.
+      Clean minimalist design with comfortable sole. The shoes should be
+      photographed on a white background, showing the side profile and
+      top view. Professional product photography style.
+  - name: Performance Training Shoes
+    file_id: performance_trainer
+    image:
+    prompt: |
+      High-performance athletic training shoes with vibrant colors.
+      Dynamic design showing speed and agility. The shoes should be
+      photographed at an angle to show the athletic styling and
+      technical features. Bright, energetic lighting.
+target_audience: |
+  Active adults aged 25-45 who prioritize fitness and style. 
+  Urban professionals and fitness enthusiasts who value both 
+  performance and aesthetics in their athletic wear. Income 
+  range $50k-$150k annually.
+target_market: |
+  Major metropolitan areas in the United States and Canada.
+  Focus on English-speaking markets with strong e-commerce adoption.
+  Urban and suburban areas with active lifestyle communities.
+campaign_message: |
+  Step into your best performance with our premium athletic collection.
+  Engineered for the modern athlete who demands both style and substance.
+
