@@ -29,14 +29,9 @@ class Settings(BaseModel):
     file_encoding: str = Field(default="utf-8", description="File encoding for YAML files")
     
     # Azure Storage Configuration
-    azure_storage_connection_string: Optional[str] = Field(
-        default=None, 
-        description="Azure Storage connection string"
-    )
-    azure_storage_container: str = Field(
-        default="ad-pipeline-assets", 
-        description="Azure Storage container name"
-    )
+    azure_storage_account_key: str = Field(..., description="Azure Storage account key")
+    azure_storage_account_name: str = Field(..., description="Azure Storage account name")
+    azure_storage_container_name: str = Field(..., description="Azure Storage container name")
     
     @validator('input_directory', 'output_directory')
     def validate_directories(cls, v):
@@ -85,8 +80,9 @@ class Settings(BaseModel):
             'input_directory': 'INPUT_DIRECTORY',
             'output_directory': 'OUTPUT_DIRECTORY',
             'file_encoding': 'FILE_ENCODING',
-            'azure_storage_connection_string': 'AZURE_STORAGE_CONNECTION_STRING',
-            'azure_storage_container': 'AZURE_STORAGE_CONTAINER',
+            'azure_storage_account_key': 'AZURE_STORAGE_ACCOUNT_KEY',
+            'azure_storage_account_name': 'AZURE_STORAGE_ACCOUNT_NAME',
+            'azure_storage_container_name': 'AZURE_STORAGE_CONTAINER_NAME',
         }
     
     @classmethod
@@ -109,8 +105,9 @@ class Settings(BaseModel):
             input_directory=Path(os.getenv("INPUT_DIRECTORY", "./input")),
             output_directory=Path(os.getenv("OUTPUT_DIRECTORY", "./output")),
             file_encoding=os.getenv("FILE_ENCODING", "utf-8"),
-            azure_storage_connection_string=os.getenv("AZURE_STORAGE_CONNECTION_STRING"),
-            azure_storage_container=os.getenv("AZURE_STORAGE_CONTAINER", "ad-pipeline-assets"),
+            azure_storage_account_key=os.getenv("AZURE_STORAGE_ACCOUNT_KEY"),
+            azure_storage_account_name=os.getenv("AZURE_STORAGE_ACCOUNT_NAME"),
+            azure_storage_container_name=os.getenv("AZURE_STORAGE_CONTAINER_NAME"),
         )
     
     def ensure_directories(self) -> None:

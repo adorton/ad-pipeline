@@ -1,10 +1,11 @@
 """Azure Blob Storage client for file uploads and downloads."""
 
 import io
+import datetime
 from pathlib import Path
 from typing import Optional
 
-from azure.storage.blob import BlobServiceClient
+from azure.storage.blob import BlobServiceClient, generate_container_sas, ContainerSasPermissions
 from azure.core.exceptions import AzureError
 
 from ..utils.logging_utils import get_logger
@@ -16,13 +17,22 @@ logger = get_logger(__name__)
 class AzureBlobClient:
     """Azure Blob Storage client for managing campaign assets."""
     
-    def __init__(self, connection_string: str, container_name: str):
+    def __init__(self, account_key: str, account_name: str, container_name: str):
         """Initialize Azure Blob Storage client.
         
         Args:
-            connection_string: Azure Storage connection string
-            container_name: Name of the blob container
+            account_key: Storage account key
+            account_name: Storage account name
+            container_name: Storage container name
         """
+        connection_string = (
+            f"DefaultEndpointsProtocol=https;"
+            f"AccountName={account_name};"
+            f"AccountKey={account_key};"
+            f"EndpointSuffix=core.windows.net"
+        )
+        self.account_key = account_key
+        self.account_name = account_name
         self.connection_string = connection_string
         self.container_name = container_name
         self.client = BlobServiceClient.from_connection_string(connection_string)
@@ -30,7 +40,8 @@ class AzureBlobClient:
         
         # Ensure container exists
         self._ensure_container_exists()
-    
+        self.container_sas = self._generate_container_sas()
+
     def _ensure_container_exists(self) -> None:
         """Ensure the blob container exists, create if it doesn't."""
         try:
@@ -205,3 +216,22 @@ class AzureBlobClient:
             return True
         except AzureError:
             return False
+
+    def get_presigned_url(self, file_path: str):
+        return f"https://{self.account_name}.blob.core.windows.net/{self.container_name}/{file_path}?{self.container_sas}"
+
+    def _generate_container_sas(self):
+        # Create a SAS token that's valid for one day, as an example
+        start_time = datetime.datetime.now(datetime.timezone.utc)
+        expiry_time = start_time + datetime.timedelta(days=1)
+
+        sas_token = generate_container_sas(
+            account_name=self.container_client.account_name,
+            container_name=self.container_client.container_name,
+            account_key=self.account_key,
+            permission=ContainerSasPermissions(read=True, write=True),
+            expiry=expiry_time,
+            start=start_time
+        )
+
+        return sas_token
