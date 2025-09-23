@@ -247,7 +247,7 @@ $ python test_setup.py
 
 ```
 ad-pipeline/
-├── ad_pipeline/            # Source code
+├── src/                    # Source code
 │   ├── __init__.py
 │   ├── cli.py             # CLI interface
 │   ├── config.py          # Configuration management

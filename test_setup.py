@@ -4,8 +4,8 @@
 import sys
 from pathlib import Path
 
-# Add ad_pipeline to path
-sys.path.insert(0, str(Path(__file__).parent / "ad_pipeline"))
+# Add src to path
+sys.path.insert(0, str(Path(__file__).parent / "src"))
 
 def test_imports():
     """Test that all modules can be imported."""
