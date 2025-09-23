@@ -39,34 +39,34 @@ def process(ctx):
     try:
         # Load configuration
         config = load_config()
-
+        
         if verbose:
             click.echo(f"Configuration loaded successfully")
-            click.echo(f"Processing briefs from: {config.input_directory}")
-            click.echo(f"Output directory: {config.output_directory}")
+            click.echo(f"Processing briefs from: {config.input_dir}")
+            click.echo(f"Output directory: {config.output_dir}")
         
         # Initialize clients
         azure_client = AzureBlobClient(
-            account_name=config.azure_storage_account_name,
-            account_key=config.azure_storage_account_key,
-            container_name=config.azure_container_name,
+            connection_string=config.azure_connection_string,
+            container_name=config.azure_container_name
         )
-
+        
         llm_client = LLMClient(
-            api_key=config.llm_api_key,
-            base_url=config.llm_base_url,
-            model=config.llm_model,
-            max_tokens=config.llm_max_tokens,
-            temperature=config.llm_temperature,
+            api_key=config.openai_api_key,
+            base_url=config.openai_base_url
         )
-
+        
         firefly_client = FireflyClient(
             client_id=config.ffs_client_id,
-            client_secret=config.ffs_secret
+            client_secret=config.ffs_client_secret
         )
-
+        
         if verbose:
             click.echo("Clients initialized successfully")
+        
+        # TODO: Implement the actual processing logic
+        click.echo("Processing logic not yet implemented")
+        click.echo("This is a placeholder for the main processing functionality")
         
         if verbose:
             click.echo("Processing completed successfully")
