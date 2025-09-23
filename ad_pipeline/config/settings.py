@@ -26,6 +26,7 @@ class Settings(BaseModel):
     # Application Configuration
     input_directory: Path = Field(default=Path("./input"), description="Input directory for campaign files")
     output_directory: Path = Field(default=Path("./output"), description="Output directory for final renditions")
+    temp_directory: Path = Field(default=Path("./temp"), description="Directory containing temporary files")
     file_encoding: str = Field(default="utf-8", description="File encoding for YAML files")
     
     # Azure Storage Configuration
@@ -33,7 +34,7 @@ class Settings(BaseModel):
     azure_storage_account_name: str = Field(..., description="Azure Storage account name")
     azure_storage_container_name: str = Field(..., description="Azure Storage container name")
     
-    @validator('input_directory', 'output_directory')
+    @validator('input_directory', 'output_directory', 'temp_directory')
     def validate_directories(cls, v):
         """Ensure directories are Path objects."""
         if isinstance(v, str):
@@ -79,6 +80,7 @@ class Settings(BaseModel):
             'llm_temperature': 'LLM_TEMPERATURE',
             'input_directory': 'INPUT_DIRECTORY',
             'output_directory': 'OUTPUT_DIRECTORY',
+            'temp_directory': 'TEMP_DIRECTORY',
             'file_encoding': 'FILE_ENCODING',
             'azure_storage_account_key': 'AZURE_STORAGE_ACCOUNT_KEY',
             'azure_storage_account_name': 'AZURE_STORAGE_ACCOUNT_NAME',
@@ -104,6 +106,7 @@ class Settings(BaseModel):
             llm_temperature=float(os.getenv("LLM_TEMPERATURE", "0.7")),
             input_directory=Path(os.getenv("INPUT_DIRECTORY", "./input")),
             output_directory=Path(os.getenv("OUTPUT_DIRECTORY", "./output")),
+            temp_directory=Path(os.getenv("TEMP_DIRECTORY", "./output")),
             file_encoding=os.getenv("FILE_ENCODING", "utf-8"),
             azure_storage_account_key=os.getenv("AZURE_STORAGE_ACCOUNT_KEY"),
             azure_storage_account_name=os.getenv("AZURE_STORAGE_ACCOUNT_NAME"),
@@ -114,3 +117,4 @@ class Settings(BaseModel):
         """Ensure input and output directories exist."""
         self.input_directory.mkdir(parents=True, exist_ok=True)
         self.output_directory.mkdir(parents=True, exist_ok=True)
+        self.temp_directory.mkdir(parents=True, exist_ok=True)
