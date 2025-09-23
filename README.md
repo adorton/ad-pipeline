@@ -119,7 +119,36 @@ FILE_ENCODING=utf-8
 The command to run the pipeline is:
 
 ``` sh
-$ uv run pipeline.py process
+$ uv run ad-pipeline process
+```
+
+Or using the CLI directly:
+
+``` sh
+$ python cli.py process
+```
+
+### Available Commands
+
+- `process` - Process all campaign briefs in the input directory
+- `validate` - Validate campaign brief files
+- `config` - Show current configuration
+- `list-campaigns` - List all campaign files in the input directory
+
+### Example Usage
+
+``` sh
+# Process all campaigns
+$ uv run ad-pipeline process
+
+# Validate campaign files
+$ uv run ad-pipeline validate
+
+# Show configuration
+$ uv run ad-pipeline config
+
+# List available campaigns
+$ uv run ad-pipeline list-campaigns
 ```
 
 When the pipeline runs, it follows this general workflow:
