@@ -1,11 +1,12 @@
 """Main pipeline processor that orchestrates the entire ad generation workflow."""
 
 import yaml
+import requests
 from pathlib import Path
 from typing import List, Optional
 
 from ..config.settings import Settings
-from ..models.campaign import Campaign
+from ..models.campaign import Campaign, Product, Template
 from ..clients.azure_client import AzureBlobClient
 from ..clients.llm_client import LLMClient
 from ..clients.photoshop_client import PhotoshopClient
@@ -39,13 +40,13 @@ class PipelineProcessor:
         """Initialize all required clients."""
         try:
             # Initialize Azure client if connection string is provided
-            if self.settings.azure_storage_connection_string:
-                self.azure_client = AzureBlobClient(
-                    connection_string=self.settings.azure_storage_connection_string,
-                    container_name=self.settings.azure_storage_container
-                )
-                logger.info("Azure Blob Storage client initialized")
-            
+            self.azure_client = AzureBlobClient(
+                account_key=self.settings.azure_storage_account_key,
+                account_name=self.settings.azure_storage_account_name,
+                container_name=self.settings.azure_storage_container_name
+            )
+            logger.info("Azure Blob Storage client initialized")
+
             # Initialize LLM client
             self.llm_client = LLMClient(
                 api_key=self.settings.llm_api_key,
@@ -55,7 +56,7 @@ class PipelineProcessor:
                 temperature=self.settings.llm_temperature
             )
             logger.info("LLM client initialized")
-            
+
             # Initialize Photoshop client
             self.photoshop_client = PhotoshopClient(
                 client_id=self.settings.ffs_client_id,
@@ -69,7 +70,7 @@ class PipelineProcessor:
                 client_secret=self.settings.ffs_secret
             )
             logger.info("Firefly client initialized")
-            
+
         except Exception as e:
             logger.error(f"Failed to initialize clients: {e}")
             raise
@@ -83,7 +84,7 @@ class PipelineProcessor:
         
         # Find all YAML campaign files
         campaign_files = find_yaml_files(self.settings.input_directory)
-        
+
         if not campaign_files:
             logger.warning(f"No YAML files found in input directory: {self.settings.input_directory}")
             return
@@ -110,24 +111,24 @@ class PipelineProcessor:
         
         # Load and validate campaign
         campaign = self._load_campaign(campaign_file)
-        
+
         # Validate template files exist
         missing_templates = campaign.validate_template_files_exist(self.settings.input_directory)
         if missing_templates:
             logger.error(f"Missing template files: {missing_templates}")
             return
-        
+
         # Validate product image files exist
         missing_images = campaign.validate_product_images_exist(self.settings.input_directory)
         if missing_images:
             logger.error(f"Missing product image files: {missing_images}")
             return
-        
+
         # Create campaign directory in Azure storage
         campaign_dir = campaign_file.stem
         if self.azure_client:
             self._upload_templates_to_azure(campaign, campaign_dir)
-        
+
         # Process each product
         for product in campaign.products:
             try:
@@ -135,7 +136,7 @@ class PipelineProcessor:
             except Exception as e:
                 logger.error(f"Failed to process product {product.name}: {e}")
                 continue
-        
+
         logger.info(f"Successfully processed campaign: {campaign.campaign_name}")
     
     def _load_campaign(self, campaign_file: Path) -> Campaign:
@@ -175,7 +176,7 @@ class PipelineProcessor:
         for template in campaign.templates:
             template_path = self.settings.input_directory / template.filename
             blob_name = f"{campaign_dir}/{template.filename}"
-            
+
             try:
                 self.azure_client.upload_file(template_path, blob_name)
                 logger.info(f"Uploaded template to Azure: {template.filename}")
@@ -194,11 +195,15 @@ class PipelineProcessor:
         logger.info(f"Processing product: {product.name}")
         
         # Get or generate product image
-        product_image_data = self._get_product_image(product, campaign_dir)
-        if not product_image_data:
+        product_image_path = self._get_product_image(product, campaign_dir)
+
+        if product_image_path is None:
             logger.error(f"Failed to get image for product: {product.name}")
             return
-        
+
+        blob_name = f"{campaign_dir}/generated_{product.file_id}.png"
+        self.azure_client.upload_file(product_image_path, blob_name)
+
         # Generate campaign messaging
         campaign_message = self._generate_campaign_message(campaign, product)
         cta_text = self._generate_cta_text(campaign, product, campaign_message)
@@ -207,7 +212,7 @@ class PipelineProcessor:
         for template in campaign.templates:
             try:
                 self._process_template(
-                    campaign, product, template, product_image_data,
+                    campaign, product, template, product_image_path.name,
                     campaign_message, cta_text, campaign_dir
                 )
             except Exception as e:
@@ -216,43 +221,34 @@ class PipelineProcessor:
         
         logger.info(f"Successfully processed product: {product.name}")
     
-    def _get_product_image(self, product: Product, campaign_dir: str) -> Optional[bytes]:
-        """Get product image data (from file or generate from prompt).
+    def _get_product_image(self, product: Product, campaign_dir: str) -> Optional[str]:
+        """Get product image image. If one is not specified, this is where we generate it
         
         Args:
             product: Product object
             campaign_dir: Campaign directory name in Azure
         
         Returns:
-            Product image data as bytes, or None if failed
+            Image path
         """
         if product.has_image():
             # Load existing image file
-            image_path = self.settings.input_directory / product.image
-            try:
-                with open(image_path, 'rb') as f:
-                    image_data = f.read()
-                logger.info(f"Loaded product image: {product.image}")
-                return image_data
-            except Exception as e:
-                logger.error(f"Failed to load product image {product.image}: {e}")
-                return None
-        
+            return self.settings.input_directory / product.image
+
         elif product.can_generate_image():
             # Generate image from prompt
             try:
-                image_data = self.firefly_client.generate_product_image(
+                image_url = self.firefly_client.generate_product_image(
                     product_name=product.name,
                     prompt=product.prompt
                 )
-                
-                # Upload to Azure if available
-                if self.azure_client:
-                    blob_name = f"{campaign_dir}/generated_{product.file_id}.png"
-                    self.azure_client.upload_data(image_data, blob_name)
-                
+
+                generated_filename = f"generated_{product.file_id}.png"
+                local_image_path = self._fetch_file(image_url, generated_filename, self.settings.temp_directory)
+
                 logger.info(f"Generated product image for: {product.name}")
-                return image_data
+
+                return local_image_path
             except Exception as e:
                 logger.error(f"Failed to generate image for product {product.name}: {e}")
                 return None
@@ -260,7 +256,7 @@ class PipelineProcessor:
         else:
             logger.error(f"Product {product.name} has no image or prompt")
             return None
-    
+
     def _generate_campaign_message(self, campaign: Campaign, product: Product) -> str:
         """Generate tailored campaign message for a product.
         
@@ -313,7 +309,7 @@ class PipelineProcessor:
         campaign: Campaign,
         product: Product,
         template: Template,
-        product_image_data: bytes,
+        product_image_file: str,
         campaign_message: str,
         cta_text: str,
         campaign_dir: str
@@ -324,7 +320,7 @@ class PipelineProcessor:
             campaign: Campaign object
             product: Product object
             template: Template object
-            product_image_data: Product image data
+            product_image_file: Product image filename
             campaign_message: Generated campaign message
             cta_text: Generated CTA text
             campaign_dir: Campaign directory name in Azure
@@ -332,37 +328,49 @@ class PipelineProcessor:
         logger.info(f"Processing template {template.filename} for product {product.name}")
         
         # Load PSD template
-        template_path = self.settings.input_directory / template.filename
-        with open(template_path, 'rb') as f:
-            psd_data = f.read()
-        
+        text_replace_input_url = self.azure_client.get_presigned_url(
+            f"{campaign_dir}/{template.filename}"
+        )
+        text_replace_output_url = self.azure_client.get_presigned_url(
+            f"{campaign_dir}/text_replace/{template.filename}"
+        )
+
         # Replace text layers
-        psd_data = self.photoshop_client.replace_text(
-            psd_data, "campaign_text", campaign_message
+        text_replace_output_url = self.photoshop_client.replace_text(
+            text_replace_input_url,
+            text_replace_output_url,
+            [("campaign_text", campaign_message), ("cta_text", cta_text)],
         )
-        psd_data = self.photoshop_client.replace_text(
-            psd_data, "cta_text", cta_text
-        )
-        
+
         # Process product image
-        cropped_image = self.photoshop_client.crop_product_image(product_image_data)
-        processed_image = self.photoshop_client.remove_background(cropped_image)
-        
+        product_image_url = self.azure_client.get_presigned_url(
+            f"{campaign_dir}/{product_image_file}"
+        )
+
+        image_remove_bg_url = self.photoshop_client.remove_background(product_image_url)
+
+        final_psd_url = self.azure_client.get_presigned_url(
+            f"{campaign_dir}/final_template/{template.filename}"
+        )
+
         # Replace smart object with product image
         psd_data = self.photoshop_client.replace_smart_object(
-            psd_data, "product_image", processed_image
+            text_replace_output_url, "product_photo", image_remove_bg_url, final_psd_url
         )
-        
+
+        rendition_filename = f"{template.file_id}_{product.file_id}.png"
+        rendition_url = self.azure_client.get_presigned_url(
+            f"{campaign_dir}/final_rendition/{rendition_filename}"
+        )
+
         # Create rendition
-        rendition_data = self.photoshop_client.create_rendition(psd_data, "png")
-        
+        rendition_url = self.photoshop_client.create_rendition(final_psd_url, rendition_url, "image/png")
+
+        local_directory = self.settings.output_directory / campaign_dir
+
         # Save rendition locally
-        self._save_rendition(rendition_data, campaign, product, template)
-        
-        # Upload to Azure if available
-        if self.azure_client:
-            self._upload_rendition_to_azure(rendition_data, campaign, product, template, campaign_dir)
-        
+        self._fetch_file(rendition_url, rendition_filename, local_directory)
+
         logger.info(f"Successfully created rendition: {product.file_id}_{template.file_id}.png")
     
     def _save_rendition(
@@ -422,3 +430,18 @@ class PipelineProcessor:
             logger.info(f"Uploaded rendition to Azure: {filename}")
         except Exception as e:
             logger.error(f"Failed to upload rendition {filename}: {e}")
+
+    def _fetch_file(self, url: str, filename: str, target_dir: Path) -> Path:
+        """Fetch an asset from a presigned or publically accessible URL and
+           save the binary data to a file
+        """
+        target_dir.mkdir(parents=True, exist_ok=True)
+        target_path = target_dir / filename
+
+        response = requests.get(url)
+        response.raise_for_status()
+
+        file_bytes = response.content
+        with open(target_path, 'wb') as f:
+            f.write(file_bytes)
+        return target_path

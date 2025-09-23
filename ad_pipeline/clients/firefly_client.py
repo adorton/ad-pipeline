@@ -69,7 +69,7 @@ class FireflyClient:
         width: int = 1024,
         height: int = 1024,
         style: str = "photographic"
-    ) -> bytes:
+    ) -> str:
         """Generate an image using Firefly API.
         
         Args:
@@ -79,7 +79,7 @@ class FireflyClient:
             style: Image style (photographic, artistic, etc.)
         
         Returns:
-            Generated image as bytes
+            URL of generated image
         
         Raises:
             Exception: If image generation fails
@@ -120,16 +120,7 @@ class FireflyClient:
                 
                 # Get the image URL and download it
                 if "image" in image_data and "presignedUrl" in image_data["image"]:
-                    image_url = image_data["image"]["presignedUrl"]
-                    
-                    # Download the image
-                    image_response = requests.get(image_url)
-                    image_response.raise_for_status()
-                    
-                    image_bytes = image_response.content
-                    
-                    logger.info(f"Successfully generated image with prompt: {prompt[:50]}...")
-                    return image_bytes
+                    return image_data["image"]["presignedUrl"]
                 else:
                     raise Exception("No image URL found in Firefly response")
             else:
@@ -145,7 +136,7 @@ class FireflyClient:
         prompt: str,
         width: int = 1024,
         height: int = 1024
-    ) -> bytes:
+    ) -> str:
         """Generate a product image with optimized settings.
         
         Args:
@@ -155,7 +146,7 @@ class FireflyClient:
             height: Image height in pixels
         
         Returns:
-            Generated product image as bytes
+            URL to generated image
         
         Raises:
             Exception: If image generation fails

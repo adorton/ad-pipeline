@@ -5,7 +5,7 @@ import datetime
 from pathlib import Path
 from typing import Optional
 
-from azure.storage.blob import BlobServiceClient, generate_container_sas, ContainerSasPermissions
+from azure.storage.blob import BlobServiceClient, generate_container_sas, ContainerSasPermissions, ContentSettings
 from azure.core.exceptions import AzureError
 
 from ..utils.logging_utils import get_logger
@@ -72,9 +72,17 @@ class AzureBlobClient:
             raise FileNotFoundError(f"Local file not found: {local_file_path}")
         
         try:
+            content_type = 'application/octet-stream'
+            if local_file_path.suffix in ('.jpg', '.jpeg'):
+                content_type = 'image/jpeg'
+            elif local_file_path.suffix == '.png':
+                content_type = 'image/png'
+
+            content_settings = ContentSettings(content_type=content_type)
+
             with open(local_file_path, "rb") as data:
                 blob_client = self.container_client.get_blob_client(blob_name)
-                blob_client.upload_blob(data, overwrite=True)
+                blob_client.upload_blob(data, overwrite=True, content_settings=content_settings)
                 
             blob_url = blob_client.url
             logger.info(f"Uploaded file to Azure: {blob_name}")

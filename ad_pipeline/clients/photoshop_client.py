@@ -2,10 +2,10 @@
 
 import base64
 import io
+import time
 from typing import Optional
 
 import requests
-from PIL import Image
 
 from ..utils.logging_utils import get_logger
 
@@ -27,7 +27,7 @@ class PhotoshopClient:
         self.client_secret = client_secret
         self.access_token = None
         self.base_url = "https://image.adobe.io/pie/psdService"
-    
+
     def _get_access_token(self) -> str:
         """Get access token for Photoshop API.
         
@@ -91,255 +91,260 @@ class PhotoshopClient:
                 json=data
             )
             response.raise_for_status()
-            return response.json()
-            
+            response_data = response.json()
+            status_url = response_data['_links']['self']['href']
+            # loop to get result
+            tries = 0
+            while tries < 5:
+                status_res = requests.get(status_url, headers=headers)
+                status_res.raise_for_status()
+                status_data = status_res.json()
+                output = status_data['outputs'][0]
+                if output['status'] not in ('failed', 'succeeded'):
+                    logger.info(f'Photoshop API is working on {endpoint} endpoint, waiting 5 seconds')
+                    time.sleep(5)
+                elif output['status'] == 'failed':
+                    raise Exception(f"Call to '{endpoint}' failed: {output['errors']}")
+                elif output['status'] == 'succeeded':
+                    return output['_links']['renditions'][0]['href']
+                tries += 1
+            raise Exception("Photoshop API request timed out")
+
         except Exception as e:
             logger.error(f"Photoshop API request failed: {e}")
             raise
     
     def replace_text(
         self,
-        psd_data: bytes,
-        text_layer_name: str,
-        new_text: str
+        input_psd_url: bytes,
+        output_psd_url: bytes,
+        layers: list[tuple[str, str]],
     ) -> bytes:
         """Replace text in a PSD file.
         
         Args:
-            psd_data: PSD file data as bytes
-            text_layer_name: Name of the text layer to replace
-            new_text: New text content
+            input_psd_url: Presigned URL for input PSD file
+            output_psd_url: Presigned URL for output PSD file
+            layers: list of tuples each taking the form (text_layer_name, text_content)
         
         Returns:
-            Modified PSD data as bytes
+            Presigned URL of output PSD
         
         Raises:
             Exception: If text replacement fails
         """
-        psd_base64 = base64.b64encode(psd_data).decode('utf-8')
-        
+
+        layer_data = list()
+        for text_layer_name, text_content in layers:
+            layer_data.append({
+                "name": text_layer_name,
+                "text": {
+                    "content": text_content,
+                }
+            })
+
         data = {
             "inputs": [
                 {
-                    "href": f"data:application/octet-stream;base64,{psd_base64}",
-                    "storage": "base64"
+                    "href": input_psd_url,
+                    "storage": "azure"
                 }
             ],
             "options": {
-                "layers": [
-                    {
-                        "name": text_layer_name,
-                        "text": {
-                            "content": new_text
-                        }
-                    }
-                ]
-            }
+                "layers": layer_data,
+            },
+            "outputs": [{
+                "href": output_psd_url,
+                "storage": "azure",
+                "type": "vnd.adobe.photoshop",
+                "overwrite": True
+            }]
         }
-        
+
         try:
-            result = self._make_request("replaceText", data)
-            
-            # Extract the modified PSD data
-            if "outputs" in result and result["outputs"]:
-                output = result["outputs"][0]
-                if "href" in output:
-                    # Download the modified PSD
-                    response = requests.get(output["href"])
-                    response.raise_for_status()
-                    
-                    modified_psd = response.content
-                    logger.info(f"Successfully replaced text in layer: {text_layer_name}")
-                    return modified_psd
-                else:
-                    raise Exception("No output href found in Photoshop response")
-            else:
-                raise Exception("No outputs found in Photoshop response")
-                
+            result = self._make_request("text", data)
+
         except Exception as e:
             logger.error(f"Failed to replace text in PSD: {e}")
             raise
+        return result
     
     def crop_product_image(
         self,
-        image_data: bytes,
-        width: int = 1024,
-        height: int = 1024
-    ) -> bytes:
+        input_url: str,
+        output_url: str
+    ) -> str:
         """Crop a product image to specified dimensions.
         
         Args:
-            image_data: Image data as bytes
-            width: Target width in pixels
-            height: Target height in pixels
-        
+            input_url: Presigned URL for input image
+            output_url: Presigned URL for output image
+
         Returns:
-            Cropped image data as bytes
+            Presigned URL of cropped image
         
         Raises:
             Exception: If cropping fails
         """
+        data = {
+            "inputs": [
+                {
+                    "href": input_url,
+                    "storage": "azure"
+                }
+            ],
+            "options": {
+                "unit": "Pixels",
+                "width": 20,
+                "height": 20,
+            },
+            "outputs": [{
+                "href": output_url,
+                "storage": "azure",
+                "type": "image/jpeg",
+                "overwrite": True,
+                "quality": 12
+            }]
+        }
+
         try:
-            with Image.open(io.BytesIO(image_data)) as img:
-                # Convert to RGB if necessary
-                if img.mode != 'RGB':
-                    img = img.convert('RGB')
-                
-                # Calculate crop box (center crop)
-                img_width, img_height = img.size
-                
-                # Calculate aspect ratio
-                target_ratio = width / height
-                img_ratio = img_width / img_height
-                
-                if img_ratio > target_ratio:
-                    # Image is wider, crop width
-                    new_width = int(img_height * target_ratio)
-                    left = (img_width - new_width) // 2
-                    crop_box = (left, 0, left + new_width, img_height)
-                else:
-                    # Image is taller, crop height
-                    new_height = int(img_width / target_ratio)
-                    top = (img_height - new_height) // 2
-                    crop_box = (0, top, img_width, top + new_height)
-                
-                # Crop and resize
-                cropped_img = img.crop(crop_box)
-                resized_img = cropped_img.resize((width, height), Image.Resampling.LANCZOS)
-                
-                # Save to bytes
-                output = io.BytesIO()
-                resized_img.save(output, format='PNG')
-                cropped_data = output.getvalue()
-                
-                logger.info(f"Successfully cropped image to {width}x{height}")
-                return cropped_data
-                
+            result = self._make_request("productCrop", data)
+
         except Exception as e:
-            logger.error(f"Failed to crop product image: {e}")
+            logger.error(f"Failed to crop image: {e}")
             raise
-    
-    def remove_background(self, image_data: bytes) -> bytes:
+        return result
+
+    def remove_background(self, input_url: str) -> Optional[str]:
         """Remove background from an image using Photoshop API.
         
         Args:
-            image_data: Image data as bytes
+            input_url: Input image URL
         
         Returns:
-            Image with background removed as bytes
+            Presigned URL of processed image (None if there was a problem)
         
         Raises:
             Exception: If background removal fails
         """
-        image_base64 = base64.b64encode(image_data).decode('utf-8')
-        
+        # this uses a different base URL from the other endpoints
+        url = "https://image.adobe.io/v2/remove-background"
         data = {
-            "inputs": [
-                {
-                    "href": f"data:image/png;base64,{image_base64}",
-                    "storage": "base64"
+            "image": {
+                "source": {
+                    "url": input_url,
                 }
-            ],
-            "options": {
-                "removeBackground": True
-            }
+            },
+            "mode": "cutout",
+            "output": {
+                "mediaType": "image/png"
+            },
+            "trim": True,
+            "backgroundColor": {
+                "red": 255,
+                "green": 255,
+                "blue": 255,
+                "alpha": 0
+            },
+            "colorDecontamination": 1
         }
-        
+
+        access_token = self._get_access_token()
+
+        headers = {
+            "Authorization": f"Bearer {access_token}",
+            "X-API-Key": self.client_id,
+            "Content-Type": "application/json"
+        }
+
         try:
-            result = self._make_request("removeBackground", data)
-            
-            # Extract the processed image data
-            if "outputs" in result and result["outputs"]:
-                output = result["outputs"][0]
-                if "href" in output:
-                    # Download the processed image
-                    response = requests.get(output["href"])
-                    response.raise_for_status()
-                    
-                    processed_image = response.content
-                    logger.info("Successfully removed background from image")
-                    return processed_image
-                else:
-                    raise Exception("No output href found in Photoshop response")
-            else:
-                raise Exception("No outputs found in Photoshop response")
-                
+            response = requests.post(
+                url,
+                headers=headers,
+                json=data
+            )
+            response.raise_for_status()
+            response_data = response.json()
+            status_url = response_data['statusUrl']
+            # loop to get result
+            tries = 0
+            while tries < 5:
+                status_res = requests.get(status_url, headers=headers)
+                status_res.raise_for_status()
+                status_data = status_res.json()
+
+                if status_data['status'] not in ('failed', 'succeeded'):
+                    logger.info(f'Photoshop API is working on remove background endpoint, waiting 5 seconds')
+                    time.sleep(5)
+                elif status_data['status'] == 'failed':
+                    breakpoint()
+                    raise Exception(f"Call to 'remove background' failed: {status_data['message']}")
+                elif status_data['status'] == 'succeeded':
+                    return status_data['result']['outputs'][0]['destination']['url']
+                tries += 1
+            raise Exception("Photoshop API request timed out")
+
         except Exception as e:
             logger.error(f"Failed to remove background: {e}")
             raise
-    
+        return None
+
     def replace_smart_object(
         self,
-        psd_data: bytes,
+        input_psd_url: str,
         smart_object_name: str,
-        new_image_data: bytes
-    ) -> bytes:
+        replace_image_url: str,
+        output_psd_url: str,
+    ) -> str:
         """Replace a smart object in a PSD file.
         
         Args:
-            psd_data: PSD file data as bytes
+            psd_url: URL to PSD file
             smart_object_name: Name of the smart object to replace
-            new_image_data: New image data as bytes
+            replace_image_url: URL to replacement image
+            output_psd_url: Presigned URL of final PSD
         
         Returns:
-            Modified PSD data as bytes
+            Presigned URL of final PSD
         
         Raises:
             Exception: If smart object replacement fails
         """
-        psd_base64 = base64.b64encode(psd_data).decode('utf-8')
-        image_base64 = base64.b64encode(new_image_data).decode('utf-8')
-        
         data = {
-            "inputs": [
-                {
-                    "href": f"data:application/octet-stream;base64,{psd_base64}",
-                    "storage": "base64"
-                }
-            ],
+            "inputs": [{
+                "href": input_psd_url,
+                "storage": "azure"
+            }],
+            "outputs": [{
+                "href": output_psd_url,
+                "storage": "azure",
+                "type": "image/vnd.adobe.photoshop",
+            }],
             "options": {
-                "layers": [
-                    {
-                        "name": smart_object_name,
-                        "smartObject": {
-                            "href": f"data:image/png;base64,{image_base64}",
-                            "storage": "base64"
-                        }
-                    }
-                ]
+                "layers": [{
+                    "name": smart_object_name,
+                    "input": {
+                        "href": replace_image_url,
+                        "storage": "azure"
+                    },
+                }]
             }
         }
-        
+
         try:
-            result = self._make_request("replaceSmartObject", data)
-            
-            # Extract the modified PSD data
-            if "outputs" in result and result["outputs"]:
-                output = result["outputs"][0]
-                if "href" in output:
-                    # Download the modified PSD
-                    response = requests.get(output["href"])
-                    response.raise_for_status()
-                    
-                    modified_psd = response.content
-                    logger.info(f"Successfully replaced smart object: {smart_object_name}")
-                    return modified_psd
-                else:
-                    raise Exception("No output href found in Photoshop response")
-            else:
-                raise Exception("No outputs found in Photoshop response")
-                
+            result = self._make_request("smartObject", data)
+
         except Exception as e:
             logger.error(f"Failed to replace smart object: {e}")
             raise
-    
+        return result
+
     def create_rendition(
         self,
-        psd_data: bytes,
-        format: str = "png",
-        width: Optional[int] = None,
-        height: Optional[int] = None
-    ) -> bytes:
+        psd_url: str,
+        rendition_url: str,
+        file_format: str = "image/png"
+    ) -> str:
         """Create a rendition from a PSD file.
         
         Args:
@@ -354,45 +359,25 @@ class PhotoshopClient:
         Raises:
             Exception: If rendition creation fails
         """
-        psd_base64 = base64.b64encode(psd_data).decode('utf-8')
-        
-        options = {
-            "format": format
-        }
-        
-        if width and height:
-            options["width"] = width
-            options["height"] = height
-        
+
         data = {
-            "inputs": [
-                {
-                    "href": f"data:application/octet-stream;base64,{psd_base64}",
-                    "storage": "base64"
-                }
-            ],
-            "options": options
+            "inputs": [{
+                "href": psd_url,
+                "storage": "azure"
+
+            }],
+            "outputs": [{
+                "href": rendition_url,
+                "storage": "azure",
+                "type": file_format,
+            }]
         }
-        
+
+
         try:
-            result = self._make_request("createRendition", data)
-            
-            # Extract the rendered image data
-            if "outputs" in result and result["outputs"]:
-                output = result["outputs"][0]
-                if "href" in output:
-                    # Download the rendered image
-                    response = requests.get(output["href"])
-                    response.raise_for_status()
-                    
-                    rendered_image = response.content
-                    logger.info(f"Successfully created {format} rendition")
-                    return rendered_image
-                else:
-                    raise Exception("No output href found in Photoshop response")
-            else:
-                raise Exception("No outputs found in Photoshop response")
-                
+            result = self._make_request("renditionCreate", data)
+
         except Exception as e:
             logger.error(f"Failed to create rendition: {e}")
             raise
+        return result
