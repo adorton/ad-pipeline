@@ -13,3 +13,4 @@ input/
 output/
 .env
 temp/
+.DS_Store
