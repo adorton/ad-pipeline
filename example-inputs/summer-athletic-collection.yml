@@ -1,0 +1,37 @@
+campaign_name: Summer Athletic Collection 2025
+templates:
+  - file_id: template_1_1
+    filename: template_1_1.psd
+  - file_id: template_16_9
+    filename: template_16_9.psd
+  - file_id: template_9_16
+    filename: template_9_16.psd
+products:
+  - name: City Commuter Sneakers
+    file_id: city_commuter
+    image:
+    prompt: |
+      Modern urban sneakers in neutral colors, perfect for city commuting.
+      Clean minimalist design with comfortable sole. The shoes should be
+      photographed on a white background, showing the side profile and
+      top view. Professional product photography style.
+  - name: Performance Training Shoes
+    file_id: performance_trainer
+    image:
+    prompt: |
+      High-performance athletic training shoes with vibrant colors.
+      Dynamic design showing speed and agility. The shoes should be
+      photographed at an angle to show the athletic styling and
+      technical features. Bright, energetic lighting.
+target_audience: |
+  Active adults aged 25-45 who prioritize fitness and style.
+  Urban professionals and fitness enthusiasts who value both
+  performance and aesthetics in their athletic wear. Income
+  range $50k-$150k annually.
+target_market: |
+  Major metropolitan areas in the United States and Canada.
+  Focus on English-speaking markets with strong e-commerce adoption.
+  Urban and suburban areas with active lifestyle communities.
+campaign_message: |
+  Step into your best performance with our premium athletic collection.
+  Engineered for the modern athlete who demands both style and substance.
